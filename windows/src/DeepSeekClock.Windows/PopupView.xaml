@@ -28,6 +28,22 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="HeaderButton" TargetType="Button" BasedOn="{StaticResource PopupActionButton}">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
     <Grid Margin="12">
         <Border x:Name="Surface" Padding="20,16,20,16" CornerRadius="16"
@@ -44,7 +60,8 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid Grid.Row="0" MinHeight="36">
+                <Grid x:Name="HeaderDragArea" Grid.Row="0" MinHeight="36" Background="Transparent" MouseLeftButtonDown="Header_OnMouseLeftButtonDown">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -56,7 +73,13 @@
                         <TextBlock Text="DeepSeek Clock" FontSize="15" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                     </StackPanel>
-                    <Border x:Name="StatusPill" Grid.Column="1" Margin="12,0,0,0" CornerRadius="14" Padding="9,5"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="PinButton" Style="{StaticResource HeaderButton}" Content="&#xE718;" ToolTip="Keep window open" AutomationProperties.Name="Keep window open" Click="Pin_OnClick" />
+                        <Button x:Name="OptionsButton" Style="{StaticResource HeaderButton}" Content="&#xE712;" ToolTip="Options" AutomationProperties.Name="Options" Click="Options_OnClick" />
+                        <Button x:Name="MinimizeButton" Style="{StaticResource HeaderButton}" Content="&#xE921;" ToolTip="Minimize" AutomationProperties.Name="Minimize" Click="Minimize_OnClick" />
+                        <Button x:Name="CloseButton" Style="{StaticResource HeaderButton}" Content="&#xE8BB;" ToolTip="Hide to tray" AutomationProperties.Name="Hide to tray" Click="Hide_OnClick" />
+                    </StackPanel>
+                    <Border x:Name="StatusPill" Grid.Row="1" Margin="0,8,0,0" HorizontalAlignment="Left" CornerRadius="14" Padding="9,5"
                             Background="{DynamicResource StatusSurfaceBrush}" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="StatusDot" Width="5" Height="5" Margin="0,0,6,0" Fill="{DynamicResource StatusBrush}" />

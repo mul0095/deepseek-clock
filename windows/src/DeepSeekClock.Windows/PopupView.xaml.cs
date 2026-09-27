@@ -19,6 +19,25 @@ public partial class PopupView : WpfUserControl
     private bool _lightTheme = true;
 
     public event EventHandler? QuitRequested;
+    public event EventHandler? PinRequested;
+    public event EventHandler? OptionsRequested;
+    public event EventHandler? MinimizeRequested;
+    public event EventHandler? HideRequested;
+    public event System.Windows.Input.MouseButtonEventHandler? DragRequested;
+
+    internal void SetPinned(bool pinned)
+    {
+        PinButton.Foreground = (MediaBrush)Resources[pinned ? "SelectedTabBrush" : "MutedBrush"];
+        PinButton.ToolTip = pinned ? "Return to tray popup" : "Keep window open";
+        System.Windows.Automation.AutomationProperties.SetName(PinButton, pinned ? "Unpin window" : "Keep window open");
+    }
+
+    internal void CopyThemeTo(ResourceDictionary destination)
+    {
+        foreach (var key in Resources.Keys)
+            if (Resources[key] is MediaBrush brush)
+                destination[key] = brush;
+    }
 
     public PopupView()
     {
@@ -106,6 +125,18 @@ public partial class PopupView : WpfUserControl
     }
 
     private void FlashTab_OnClick(object sender, RoutedEventArgs e) { _selectedModel = DeepSeekModel.Flash; UpdateRates(); }
+    private void Pin_OnClick(object sender, RoutedEventArgs e) => PinRequested?.Invoke(this, EventArgs.Empty);
+    private void Options_OnClick(object sender, RoutedEventArgs e) => OptionsRequested?.Invoke(OptionsButton, EventArgs.Empty);
+    private void Minimize_OnClick(object sender, RoutedEventArgs e) => MinimizeRequested?.Invoke(this, EventArgs.Empty);
+    private void Hide_OnClick(object sender, RoutedEventArgs e) => HideRequested?.Invoke(this, EventArgs.Empty);
+
+    private void Header_OnMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        for (var node = e.OriginalSource as DependencyObject; node is not null; node = VisualTreeHelper.GetParent(node))
+            if (node is System.Windows.Controls.Primitives.ButtonBase)
+                return;
+        DragRequested?.Invoke(this, e);
+    }
     private void ProTab_OnClick(object sender, RoutedEventArgs e) { _selectedModel = DeepSeekModel.Pro; UpdateRates(); }
     private void Quit_OnClick(object sender, RoutedEventArgs e) => QuitRequested?.Invoke(this, EventArgs.Empty);
     private void Console_OnClick(object sender, RoutedEventArgs e) =>

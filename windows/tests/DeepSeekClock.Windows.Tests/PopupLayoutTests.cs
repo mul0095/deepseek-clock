@@ -31,7 +31,7 @@ public sealed class PopupLayoutTests
                 view.Measure(new Size(window.Width, double.PositiveInfinity));
                 view.Arrange(new Rect(view.DesiredSize));
                 view.UpdateLayout();
-                foreach (var name in new[] { "StatusPill", "Countdown", "Transition", "CacheHit", "CacheMiss", "Output", "ConsoleLink", "QuitLink" })
+                foreach (var name in new[] { "BrandIcon", "PinButton", "OptionsButton", "MinimizeButton", "CloseButton", "StatusPill", "Countdown", "Transition", "CacheHit", "CacheMiss", "Output", "ConsoleLink", "QuitLink" })
                     AssertFitsEveryAncestor((FrameworkElement)view.FindName(name), view);
                 Assert.Equal(model == "FlashTab" ? "$0.60" : "$1.98", ((TextBlock)view.FindName("Output")).Text);
                 var output = (TextBlock)view.FindName("Output");
