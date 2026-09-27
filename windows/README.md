@@ -53,6 +53,12 @@ the popup or right-click it for the same menu. The label uses the primary
 Windows taskbar and hides when a full-screen app covers it or the taskbar is
 auto-hidden. It makes room for taskbar-owned labels such as Codex Usage Widget.
 
+Choose **Start with Windows** in the tray or Options menu to launch the current
+EXE at your next sign-in. This writes a per-user Windows Run entry; it does not
+need administrator rights. Uncheck the item to remove the entry. If you move a
+portable EXE, launch it from the new location and enable the option again so
+Windows has the new path. Sign-in starts the app quietly in the tray.
+
 ## Run
 
 ```powershell
