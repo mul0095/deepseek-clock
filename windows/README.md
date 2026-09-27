@@ -7,10 +7,30 @@ repository.
 
 ## Pricing schedule
 
-- Peak: Monday-Friday, 01:00-04:00 and 06:00-10:00 UTC.
+- Peak: Monday-Friday, 01:00-04:00 and 06:00-10:00 UTC, excluding Chinese
+  public holidays.
 - Off-peak: all other times, at half price.
 
 Times are shown in your local time zone; all calculation is done in UTC.
+Chinese holiday dates use China Standard Time (UTC+08). Weekend make-up workdays
+remain off-peak because DeepSeek specifies peak hours only Monday-Friday.
+
+## Official data
+
+The app reads model prices from [DeepSeek's public pricing page](https://api-docs.deepseek.com/quick_start/pricing/)
+at startup and every six hours. No API key is needed. It also reads the
+[2026 State Council holiday notice](https://www.beijing.gov.cn/zhengce/zhengcefagui/202511/t20251104_4258873.html)
+from an official government site. Both pages are checked before their data is
+used. The last verified copies are stored in
+`%LOCALAPPDATA%\DeepSeekClock\pricing-cache.json` and `holidays-cache.json`.
+If a page is unavailable or its format changes, the app keeps the verified
+cached data. Bundled 2026 holiday dates and prices provide the offline fallback.
+The rate card says whether its prices are currently fetched, saved, or bundled.
+
+There is no documented public DeepSeek endpoint that reports the current
+peak/off-peak state. The app calculates it from DeepSeek's published UTC rule.
+The 2026 holiday notice is the only year currently included; until a later
+official notice is added, the popup labels results for other years as estimates.
 
 ## Appearance
 
