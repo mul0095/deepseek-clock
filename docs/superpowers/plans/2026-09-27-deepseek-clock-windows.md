@@ -4,21 +4,21 @@
 
 **Goal:** Build a dependency-free Windows tray app that shows DeepSeek peak/off-peak pricing, current rates, and a countdown to the next price change.
 
-**Architecture:** A `net8.0` class library (`DeepSeekClock.Core`) holds all business logic as pure functions of a `DateTimeOffset`, mirroring the original Swift `DeepSeekSchedule`/`DeepSeekPricing`/`ClockModel` split. A thin `net8.0-windows` WinForms app (`DeepSeekClock.Windows`) owns a `NotifyIcon` plus a borderless popup panel and does no pricing math itself.
+**Architecture:** A `net10.0` class library (`DeepSeekClock.Core`) holds all business logic as pure functions of a `DateTimeOffset`, mirroring the original Swift `DeepSeekSchedule`/`DeepSeekPricing`/`ClockModel` split. A thin `net10.0-windows` WinForms app (`DeepSeekClock.Windows`) owns a `NotifyIcon` plus a borderless popup panel and does no pricing math itself.
 
-**Tech Stack:** C# 12, .NET 8, WinForms, GDI+, xUnit.
+**Tech Stack:** C# 14, .NET 10 LTS, WinForms, GDI+, xUnit.
 
 **Spec:** `docs/superpowers/specs/2026-09-27-deepseek-clock-windows-design.md`
 
 ## Global Constraints
 
-- Target framework: `net8.0` for Core and tests, `net8.0-windows` for the app.
+- Target framework: `net10.0` for Core and tests, `net10.0-windows` for the app.
 - No third-party runtime dependencies. xUnit is the only test-only package.
 - Money is always `decimal`, never `double`.
 - All schedule math is in UTC. `TimeZoneInfo` is used only to format display text.
 - App name and assembly name: `DeepSeekClock` (output `DeepSeekClock.exe`).
 - Peak windows are `[1, 4)` and `[6, 10)` UTC, Monday–Friday; everything else is off-peak at half price.
-- Tests run locally with `dotnet test` during development (explicitly approved) and in GitHub Actions as the final gate.
+- Add/update tests for behavior changes, but do not run the test suite locally; GitHub Actions is the test gate.
 - Commit each task with the repository's `git-commiter` subagent (see `AGENTS.md`); stage only that task's files.
 - Do not modify the existing Swift sources, `Package.swift`, or `.github/workflows/ci.yml`.
 
@@ -93,10 +93,10 @@ Run from the repository root:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path windows | Out-Null
-Set-Content -Path windows/global.json -Value '{ "sdk": { "version": "8.0.425", "rollForward": "latestFeature" } }'
+Set-Content -Path windows/global.json -Value '{ "sdk": { "version": "10.0.100", "rollForward": "latestFeature" } }'
 dotnet new sln -n DeepSeekClock -o windows
-dotnet new classlib -n DeepSeekClock.Core -o windows/src/DeepSeekClock.Core -f net8.0
-dotnet new xunit -n DeepSeekClock.Core.Tests -o windows/tests/DeepSeekClock.Core.Tests -f net8.0
+dotnet new classlib -n DeepSeekClock.Core -o windows/src/DeepSeekClock.Core -f net10.0
+dotnet new xunit -n DeepSeekClock.Core.Tests -o windows/tests/DeepSeekClock.Core.Tests -f net10.0
 Remove-Item windows/src/DeepSeekClock.Core/Class1.cs
 Remove-Item windows/tests/DeepSeekClock.Core.Tests/UnitTest1.cs
 dotnet sln windows/DeepSeekClock.sln add windows/src/DeepSeekClock.Core/DeepSeekClock.Core.csproj
@@ -112,7 +112,7 @@ Replace `windows/src/DeepSeekClock.Core/DeepSeekClock.Core.csproj`:
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>DeepSeekClock.Core</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -165,10 +165,9 @@ public class SmokeTests
 }
 ```
 
-- [ ] **Step 6: Run the test to verify the harness works**
+- [ ] **Step 6: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: PASS, 1 test.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 7: Add Windows-local ignore rules**
 
@@ -366,10 +365,9 @@ public class DeepSeekScheduleTests
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [ ] **Step 3: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: FAIL to compile, `The name 'DeepSeekSchedule' does not exist`.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 4: Implement the schedule**
 
@@ -449,10 +447,9 @@ public static class DeepSeekSchedule
 }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [ ] **Step 5: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: PASS, 28 tests (1 smoke + schedule cases).
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 6: Commit**
 
@@ -553,10 +550,9 @@ public class DeepSeekPricingTests
 }
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [ ] **Step 2: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: FAIL to compile, `The type or namespace name 'DeepSeekModel' could not be found`.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 3: Implement the model, rates, and formatter**
 
@@ -657,10 +653,9 @@ public static class UsdPriceFormatter
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [ ] **Step 4: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: PASS.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 5: Commit**
 
@@ -766,10 +761,9 @@ public class ClockStateTests
 }
 ```
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [ ] **Step 3: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: FAIL to compile, `The name 'ClockCountdown' does not exist`.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 4: Implement the countdown formatter**
 
@@ -836,10 +830,9 @@ public sealed record ClockState(
 }
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 6: Leave test verification to CI**
 
-Run: `dotnet test windows/tests/DeepSeekClock.Core.Tests/DeepSeekClock.Core.Tests.csproj`
-Expected: PASS.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 7: Commit**
 
@@ -874,7 +867,7 @@ Suggested message: `feat(windows): add countdown formatting and clock state`
 Run from the repository root:
 
 ```powershell
-dotnet new winforms -n DeepSeekClock.Windows -o windows/src/DeepSeekClock.Windows -f net8.0
+dotnet new winforms -n DeepSeekClock.Windows -o windows/src/DeepSeekClock.Windows -f net10.0
 Remove-Item windows/src/DeepSeekClock.Windows/Form1.cs
 Remove-Item windows/src/DeepSeekClock.Windows/Form1.Designer.cs
 Remove-Item windows/src/DeepSeekClock.Windows/Form1.resx
@@ -887,7 +880,9 @@ dotnet add windows/src/DeepSeekClock.Windows/DeepSeekClock.Windows.csproj refere
 
 ```powershell
 New-Item -ItemType Directory -Force -Path windows/src/DeepSeekClock.Windows/Resources | Out-Null
-Copy-Item -LiteralPath "C:\Users\mul0\Pictures\Application icon\deepseek_256.ico" -Destination windows/src/DeepSeekClock.Windows/Resources/deepseek_256.ico -Force
+$sourceIcon = Join-Path $env:USERPROFILE "Pictures\Application icon\deepseek_256.ico"
+if (-not (Test-Path -LiteralPath $sourceIcon)) { throw "Icon not found: $sourceIcon" }
+Copy-Item -LiteralPath $sourceIcon -Destination windows/src/DeepSeekClock.Windows/Resources/deepseek_256.ico -Force
 ```
 
 - [ ] **Step 3: Configure the app project**
@@ -899,7 +894,7 @@ Replace `windows/src/DeepSeekClock.Windows/DeepSeekClock.Windows.csproj`:
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>DeepSeekClock.Windows</RootNamespace>
     <AssemblyName>DeepSeekClock</AssemblyName>
     <Nullable>enable</Nullable>
@@ -1548,7 +1543,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
 
       - name: Test
         run: dotnet test DeepSeekClock.sln -c Release
@@ -1640,10 +1635,9 @@ A Windows system-tray version lives in [`windows/`](windows/), built with
 C# / .NET and distributed as a single `.exe`.
 ```
 
-- [ ] **Step 6: Verify the full suite once more**
+- [ ] **Step 6: Leave test verification to CI**
 
-Run: `dotnet test windows/DeepSeekClock.sln -c Release`
-Expected: PASS, all tests.
+Do not run tests locally. GitHub Actions runs the affected test suite after push.
 
 - [ ] **Step 7: Commit**
 
@@ -1660,7 +1654,7 @@ Suggested message: `ci(windows): add Windows CI workflow, README, and packaging 
 
 After all tasks:
 
-1. `dotnet test windows/DeepSeekClock.sln -c Release` passes locally.
+1. GitHub Actions runs `dotnet test windows/DeepSeekClock.sln -c Release` successfully after push.
 2. `dotnet publish ...` produces a runnable `DeepSeekClock.exe`.
 3. Push and confirm both `.github/workflows/ci.yml` (macOS, must stay green) and `.github/workflows/windows-ci.yml` succeed.
 4. The Swift sources are untouched: `git log --oneline -- Package.swift Sources Tests` shows no commits from this work, and `git status` is clean for those paths.

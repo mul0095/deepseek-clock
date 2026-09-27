@@ -40,7 +40,7 @@ Out of scope for the MVP (possible later):
 
 | Decision | Choice |
 | --- | --- |
-| Language / runtime | C# / .NET 8 (LTS) |
+| Language / runtime | C# / .NET 10 (LTS) |
 | UI toolkit | WinForms (no third-party dependencies) |
 | Repository layout | Fork of `jaibhasin/deepseek-clock`, Windows app under `windows/` |
 | Original app | Unchanged |
@@ -55,15 +55,15 @@ Out of scope for the MVP (possible later):
 windows/
   DeepSeekClock.sln
   src/
-    DeepSeekClock.Core/          # net8.0 class library, no Windows/WinForms deps
-    DeepSeekClock.Windows/       # net8.0-windows WinForms app
+    DeepSeekClock.Core/          # net10.0 class library, no Windows/WinForms deps
+    DeepSeekClock.Windows/       # net10.0-windows WinForms app
       Resources/deepseek_256.ico
   tests/
     DeepSeekClock.Core.Tests/    # xUnit, tests Core only
   README.md
 ```
 
-`Core` targets `net8.0` and has no WinForms reference, so it is testable on any
+`Core` targets `net10.0` and has no WinForms reference, so it is testable on any
 runner (including Linux CI) and free of UI concerns.
 
 ## Core library (`DeepSeekClock.Core`)
