@@ -18,11 +18,19 @@ The popup follows the Windows app theme automatically. Choose Light or Dark in
 Windows Settings under Personalization > Colors; the popup updates when the
 setting changes.
 
+The popup uses a transparent WPF window with a content-sized height and a
+420-unit width that scales with Windows DPI. All three rate rows and the footer
+remain part of the layout; there is no fixed pixel-sized host around the card.
+
 ## Run
 
 ```powershell
 dotnet run --project src/DeepSeekClock.Windows/DeepSeekClock.Windows.csproj
 ```
+
+For visual inspection, append `-- --show` to open the popup immediately with a
+taskbar entry and keep it open when focus changes. Press Escape to dismiss it.
+Normal tray launches continue to dismiss the popup when it loses focus.
 
 ## Build a single executable
 

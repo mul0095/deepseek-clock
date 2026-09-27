@@ -11,12 +11,13 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu;
     private readonly ClockTicker _ticker = new();
-    private readonly PopupForm _popup = new();
+    private readonly PopupWindow _popup;
     private RenderedTrayIcon? _currentIcon;
     private PricingPhase? _paintedPhase;
 
-    public TrayAppContext()
+    public TrayAppContext(bool showPopup = false)
     {
+        _popup = new PopupWindow(preview: showPopup);
         _currentIcon = TrayIconRenderer.Render(PricingPhase.OffPeak);
         _menu = new ContextMenuStrip();
         _menu.Items.Add("Open", null, (_, _) => TogglePopup());
@@ -37,6 +38,14 @@ internal sealed class TrayAppContext : ApplicationContext
         _popup.QuitRequested += (_, _) => ExitThread();
         _ticker.Tick += state => UpdateUi(state);
         _ticker.Start();
+        if (showPopup)
+            Application.Idle += ShowPopupOnIdle;
+    }
+
+    private void ShowPopupOnIdle(object? sender, EventArgs e)
+    {
+        Application.Idle -= ShowPopupOnIdle;
+        TogglePopup();
     }
 
     /// <summary>Formats the tooltip, clamped to the Shell tooltip limit.</summary>
@@ -61,13 +70,13 @@ internal sealed class TrayAppContext : ApplicationContext
             previous?.Dispose();
         }
         _notifyIcon.Text = Tooltip(state);
-        if (_popup.Visible)
+        if (_popup.IsVisible)
             _popup.ShowState(state);
     }
 
     private void TogglePopup()
     {
-        if (_popup.Visible)
+        if (_popup.IsVisible)
         {
             _popup.Hide();
         }
@@ -82,6 +91,7 @@ internal sealed class TrayAppContext : ApplicationContext
     {
         if (disposing)
         {
+            Application.Idle -= ShowPopupOnIdle;
             _ticker.Dispose();
             _popup.Dispose();
             _notifyIcon.Visible = false;
