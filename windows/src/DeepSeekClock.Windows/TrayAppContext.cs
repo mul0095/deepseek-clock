@@ -22,9 +22,11 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly CancellationTokenSource _shutdown = new();
     private readonly System.Windows.Forms.Timer _pricingRefreshTimer = new() { Interval = 6 * 60 * 60 * 1000 };
     private readonly PreferencesStore _store = new();
+    private readonly StartupRegistration _startup = new(Environment.ProcessPath ?? System.Windows.Forms.Application.ExecutablePath);
     private WidgetPreferences _preferences;
     private readonly WpfMenuItem _pinItem;
     private readonly WpfMenuItem _labelItem;
+    private readonly WpfMenuItem _startupItem;
     private readonly WpfMenuItem _topItem;
     private readonly Dictionary<ThemePreference, WpfMenuItem> _themeItems = new();
     private RenderedTrayIcon? _currentIcon;
@@ -48,11 +50,18 @@ internal sealed class TrayAppContext : ApplicationContext
         _menu.Items.Add(Item("Open DeepSeek Clock", "\uE8A7", OpenPopup));
         _labelItem = Item("Show timer on taskbar", "\uE950", null, checkable: true);
         _labelItem.Click += (_, _) => Dispatch(() => Save(_preferences with { TaskbarLabel = _labelItem.IsChecked }));
+        _startupItem = Item("Start with Windows", "\uE753", null, checkable: true);
+        _startupItem.Click += (_, _) =>
+        {
+            var enabled = _startupItem.IsChecked;
+            Dispatch(() => SetStartup(enabled));
+        };
         _pinItem = Item("Keep window open", "\uE718", null, checkable: true);
         _pinItem.Click += (_, _) => Dispatch(() => Save(_preferences with { KeepOpen = _pinItem.IsChecked }));
         _topItem = Item("Always on top", "\uE74A", null, checkable: true);
         _topItem.Click += (_, _) => Dispatch(() => Save(_preferences with { AlwaysOnTop = _topItem.IsChecked }));
         _menu.Items.Add(_labelItem);
+        _menu.Items.Add(_startupItem);
         _menu.Items.Add(_pinItem);
         _menu.Items.Add(_topItem);
         _menu.Items.Add(new Separator());
@@ -115,11 +124,19 @@ internal sealed class TrayAppContext : ApplicationContext
     private void ShowMenu(UIElement? anchor)
     {
         _menu.IsOpen = false;
+        _startupItem.IsChecked = _startup.IsEnabled();
         _popup.CopyThemeTo(_menu.Resources);
         _menu.PlacementTarget = anchor;
         _menu.Placement = anchor is null ? PlacementMode.MousePoint : anchor == _taskbar.LabelSurface ? PlacementMode.Top : PlacementMode.Bottom;
         _popup.MenuOpen = true;
         _menu.IsOpen = true;
+    }
+
+    private void SetStartup(bool enabled)
+    {
+        if (!_startup.TrySetEnabled(enabled, out var error))
+            _notifyIcon.ShowBalloonTip(5000, "DeepSeek Clock", error ?? "Cannot update Windows startup.", ToolTipIcon.Warning);
+        _startupItem.IsChecked = _startup.IsEnabled();
     }
 
     private void Save(WidgetPreferences preferences)
