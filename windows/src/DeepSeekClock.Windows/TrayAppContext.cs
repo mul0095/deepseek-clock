@@ -34,6 +34,7 @@ internal sealed class TrayAppContext : ApplicationContext
             if (e.Button == MouseButtons.Left)
                 TogglePopup();
         };
+        _popup.QuitRequested += (_, _) => ExitThread();
         _ticker.Tick += state => UpdateUi(state);
         _ticker.Start();
     }
