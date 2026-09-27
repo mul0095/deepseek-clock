@@ -53,3 +53,8 @@ swift test
 ## License
 
 MIT
+
+## Windows
+
+A Windows system-tray version lives in [`windows/`](windows/), built with
+C# / .NET and distributed as a single `.exe`.
