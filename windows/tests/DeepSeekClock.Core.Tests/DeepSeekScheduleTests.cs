@@ -20,7 +20,7 @@ public class DeepSeekScheduleTests
     }
 
     [Theory]
-    [InlineData(21)] [InlineData(22)] [InlineData(23)] [InlineData(24)] [InlineData(25)]
+    [InlineData(21)] [InlineData(22)] [InlineData(23)] [InlineData(24)] [InlineData(28)]
     public void EveryWeekdayIsPeakInsideBothWindows(int day)
     {
         Assert.True(DeepSeekSchedule.IsPeak(TestSupport.Utc(2026, 9, day, 2, 0)));
@@ -33,6 +33,31 @@ public class DeepSeekScheduleTests
     {
         foreach (var hour in new[] { 0, 2, 7, 12, 23 })
             Assert.False(DeepSeekSchedule.IsPeak(TestSupport.Utc(2026, 9, day, hour, 0)));
+    }
+
+    [Fact]
+    public void ChinesePublicHolidaySuppressesPeakAndSkipsItsTransitions()
+    {
+        var holidayMorning = TestSupport.Utc(2026, 9, 25, 2, 0);
+        Assert.True(ChinesePublicHolidays.IsHoliday(holidayMorning));
+        Assert.False(DeepSeekSchedule.IsPeak(holidayMorning));
+        Assert.Equal(TestSupport.Utc(2026, 9, 28, 1, 0), DeepSeekSchedule.NextTransition(holidayMorning));
+    }
+
+    [Fact]
+    public void NationalDayHolidaySkipsTheFullPublishedBreak()
+    {
+        Assert.Equal(TestSupport.Utc(2026, 10, 8, 1, 0),
+            DeepSeekSchedule.NextTransition(TestSupport.Utc(2026, 9, 30, 11, 0)));
+    }
+
+    [Fact]
+    public void HolidayDatesUseChinaCivilTime()
+    {
+        Assert.False(ChinesePublicHolidays.IsHoliday(TestSupport.Utc(2026, 9, 24, 15, 59)));
+        Assert.True(ChinesePublicHolidays.IsHoliday(TestSupport.Utc(2026, 9, 24, 16, 0)));
+        Assert.True(ChinesePublicHolidays.HasPublishedCalendar(2026));
+        Assert.False(ChinesePublicHolidays.HasPublishedCalendar(2027));
     }
 
     [Theory]

@@ -21,7 +21,7 @@ public static class DeepSeekSchedule
     public static bool IsPeak(DateTimeOffset instant)
     {
         var utc = instant.UtcDateTime;
-        if (utc.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
+        if (utc.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || ChinesePublicHolidays.IsHoliday(instant))
             return false;
 
         foreach (var window in PeakWindows)
@@ -49,7 +49,9 @@ public static class DeepSeekSchedule
                 foreach (var hour in new[] { window.StartHour, window.EndHour })
                 {
                     var instant = new DateTimeOffset(day.AddHours(hour), TimeSpan.Zero);
-                    if (instant > after && (best is null || instant < best.Value))
+                    if (instant > after &&
+                        PhaseAt(instant) != PhaseAt(instant.AddTicks(-1)) &&
+                        (best is null || instant < best.Value))
                         best = instant;
                 }
             }
