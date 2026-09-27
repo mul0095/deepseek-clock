@@ -14,13 +14,24 @@ Times are shown in your local time zone; all calculation is done in UTC.
 
 ## Appearance
 
-The popup follows the Windows app theme automatically. Choose Light or Dark in
-Windows Settings under Personalization > Colors; the popup updates when the
-setting changes.
+The popup follows the Windows app theme automatically. The Options menu can
+also select Light or Dark independently. In system mode, the popup updates
+when the Windows theme changes.
 
 The popup uses a transparent WPF window with a content-sized height and a
 420-unit width that scales with Windows DPI. All three rate rows and the footer
 remain part of the layout; there is no fixed pixel-sized host around the card.
+
+Drag the popup by its header. The pin keeps it open when focus changes;
+the Options menu also controls whether it stays on top. Window position,
+appearance, and these choices are saved under
+`%LOCALAPPDATA%\DeepSeekClock\settings.json`.
+
+Enable **Show timer on taskbar** in Options or the tray menu to display a
+compact live countdown beside the notification area. Click the label to open
+the popup or right-click it for the same menu. The label uses the primary
+Windows taskbar and hides when a full-screen app covers it or the taskbar is
+auto-hidden. It makes room for taskbar-owned labels such as Codex Usage Widget.
 
 ## Run
 
@@ -37,7 +48,8 @@ Normal tray launches continue to dismiss the popup when it loses focus.
 ```powershell
 dotnet publish src/DeepSeekClock.Windows/DeepSeekClock.Windows.csproj `
   -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true `
   -o publish
 ```
 
