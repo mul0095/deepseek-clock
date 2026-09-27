@@ -11,6 +11,7 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _menu;
     private readonly ClockTicker _ticker = new();
+    private readonly PopupForm _popup = new();
     private RenderedTrayIcon? _currentIcon;
     private PricingPhase? _paintedPhase;
 
@@ -18,6 +19,8 @@ internal sealed class TrayAppContext : ApplicationContext
     {
         _currentIcon = TrayIconRenderer.Render(PricingPhase.OffPeak);
         _menu = new ContextMenuStrip();
+        _menu.Items.Add("Open", null, (_, _) => TogglePopup());
+        _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("Exit", null, (_, _) => ExitThread());
         _notifyIcon = new NotifyIcon
         {
@@ -25,6 +28,11 @@ internal sealed class TrayAppContext : ApplicationContext
             Text = "DeepSeek Clock",
             Visible = true,
             ContextMenuStrip = _menu,
+        };
+        _notifyIcon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+                TogglePopup();
         };
         _ticker.Tick += state => UpdateUi(state);
         _ticker.Start();
@@ -52,6 +60,21 @@ internal sealed class TrayAppContext : ApplicationContext
             previous?.Dispose();
         }
         _notifyIcon.Text = Tooltip(state);
+        if (_popup.Visible)
+            _popup.ShowState(state);
+    }
+
+    private void TogglePopup()
+    {
+        if (_popup.Visible)
+        {
+            _popup.Hide();
+        }
+        else
+        {
+            _popup.ShowState(ClockState.From(DateTimeOffset.Now, TimeZoneInfo.Local));
+            _popup.ShowNearCursor();
+        }
     }
 
     protected override void Dispose(bool disposing)
@@ -59,6 +82,7 @@ internal sealed class TrayAppContext : ApplicationContext
         if (disposing)
         {
             _ticker.Dispose();
+            _popup.Dispose();
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
             _menu.Dispose();
