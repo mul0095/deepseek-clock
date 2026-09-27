@@ -85,6 +85,8 @@ internal sealed class PopupWindow : Window, IDisposable
 
     public void ShowState(ClockState state) => _view.ShowState(state);
 
+    public void SetPricing(PricingCatalog pricing, string source) => _view.SetPricing(pricing, source);
+
     public void ApplyPreferences(WidgetPreferences preferences)
     {
         _preferences = preferences;

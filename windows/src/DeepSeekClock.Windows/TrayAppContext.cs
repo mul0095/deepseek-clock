@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -16,6 +17,9 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly ClockTicker _ticker = new();
     private readonly PopupWindow _popup;
     private readonly TaskbarLabelWindow _taskbar = new();
+    private readonly OfficialPricingService _pricing = new();
+    private readonly CancellationTokenSource _shutdown = new();
+    private readonly System.Windows.Forms.Timer _pricingRefreshTimer = new() { Interval = 6 * 60 * 60 * 1000 };
     private readonly PreferencesStore _store = new();
     private WidgetPreferences _preferences;
     private readonly WpfMenuItem _pinItem;
@@ -24,11 +28,14 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly Dictionary<ThemePreference, WpfMenuItem> _themeItems = new();
     private RenderedTrayIcon? _currentIcon;
     private PricingPhase? _paintedPhase;
+    private PricingSnapshot? _currentPricing;
 
     public TrayAppContext(bool showPopup = false)
     {
         _preferences = _store.Load();
         _popup = new PopupWindow(preview: showPopup);
+        _currentPricing = _pricing.ReadCache();
+        ApplyPricing(_currentPricing, live: false);
         _menu = new WpfMenu { Placement = PlacementMode.MousePoint };
         _menu.Resources.MergedDictionaries.Add(new ResourceDictionary
         {
@@ -83,6 +90,8 @@ internal sealed class TrayAppContext : ApplicationContext
         _taskbar.MenuRequested += (sender, _) => ShowMenu(sender as UIElement);
         _ticker.Tick += UpdateUi;
         _ticker.Start();
+        _pricingRefreshTimer.Tick += (_, _) => _ = RefreshPricingAsync();
+        System.Windows.Forms.Application.Idle += StartPricingOnIdle;
         ApplyPreferences();
         if (showPopup || _preferences.KeepOpen)
             System.Windows.Forms.Application.Idle += ShowPopupOnIdle;
@@ -135,9 +144,46 @@ internal sealed class TrayAppContext : ApplicationContext
         OpenPopup();
     }
 
+    private void StartPricingOnIdle(object? sender, EventArgs e)
+    {
+        System.Windows.Forms.Application.Idle -= StartPricingOnIdle;
+        _pricingRefreshTimer.Start();
+        _ = RefreshPricingAsync();
+    }
+
+    private async Task RefreshPricingAsync()
+    {
+        try
+        {
+            var snapshot = await _pricing.RefreshAsync(_shutdown.Token).ConfigureAwait(false);
+            if (_shutdown.IsCancellationRequested || _popup.Dispatcher.HasShutdownStarted)
+                return;
+            _ = _popup.Dispatcher.BeginInvoke((Action)(() =>
+            {
+                if (snapshot is not null)
+                    _currentPricing = snapshot;
+                ApplyPricing(_currentPricing, live: snapshot is not null);
+            }));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            Trace.TraceWarning("Official prices unavailable: {0}", ex.Message);
+            if (!_shutdown.IsCancellationRequested && !_popup.Dispatcher.HasShutdownStarted)
+                _ = _popup.Dispatcher.BeginInvoke((Action)(() => ApplyPricing(_currentPricing, live: false)));
+        }
+    }
+
+    private void ApplyPricing(PricingSnapshot? snapshot, bool live)
+    {
+        var source = snapshot is null ? "Bundled rates" :
+            $"{(live ? "Official" : "Saved")} · {snapshot.UpdatedAt.ToLocalTime():g}";
+        _popup.SetPricing(snapshot?.Catalog ?? PricingCatalog.Bundled, source);
+    }
+
     internal static string Tooltip(ClockState state)
     {
-        var phase = state.Phase == PricingPhase.Peak ? "Peak pricing" : "Off-peak · 50% off";
+        var phase = !state.HolidayCalendarAvailable ? "Estimated pricing · holiday calendar unavailable" :
+            state.Phase == PricingPhase.Peak ? "Peak pricing" : "Off-peak · 50% off";
         var text = $"{phase}\nChanges in {state.Countdown}";
         if (state.TransitionText is { } at)
             text += $" at {at}";
@@ -180,6 +226,11 @@ internal sealed class TrayAppContext : ApplicationContext
         if (disposing)
         {
             System.Windows.Forms.Application.Idle -= ShowPopupOnIdle;
+            System.Windows.Forms.Application.Idle -= StartPricingOnIdle;
+            _shutdown.Cancel();
+            _pricingRefreshTimer.Dispose();
+            _pricing.Dispose();
+            _shutdown.Dispose();
             _ticker.Dispose();
             _menu.IsOpen = false;
             _taskbar.Dispose();

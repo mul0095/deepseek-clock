@@ -16,6 +16,8 @@ public partial class PopupView : WpfUserControl
 {
     private DeepSeekModel _selectedModel = DeepSeekModel.Flash;
     private PricingPhase _phase = PricingPhase.OffPeak;
+    private PricingCatalog _pricing = PricingCatalog.Bundled;
+    private bool _holidayCalendarAvailable = true;
     private bool _lightTheme = true;
 
     public event EventHandler? QuitRequested;
@@ -51,23 +53,33 @@ public partial class PopupView : WpfUserControl
     public void ShowState(ClockState state)
     {
         _phase = state.Phase;
+        _holidayCalendarAvailable = state.HolidayCalendarAvailable;
         UpdatePhaseColors();
         Countdown.Text = state.Countdown;
-        Transition.Text = state.TransitionText is { } time
+        Transition.Text = !_holidayCalendarAvailable ? "Holiday calendar unavailable · time is an estimate" : state.TransitionText is { } time
             ? $"{(_phase == PricingPhase.Peak ? "Peak" : "Off-peak")} ends at {time}"
             : string.Empty;
+        UpdateRates();
+    }
+
+    internal void SetPricing(PricingCatalog pricing, string source)
+    {
+        _pricing = pricing;
+        RateSource.Text = source;
+        RateSource.ToolTip = OfficialPricingParser.SourceUrl;
         UpdateRates();
     }
 
     private void UpdatePhaseColors()
     {
         var isPeak = _phase == PricingPhase.Peak;
-        StatusText.Text = isPeak ? "Peak" : "Off-peak";
+        StatusText.Text = _holidayCalendarAvailable ? (isPeak ? "Peak" : "Off-peak") : "Estimated";
         StatusPill.Background = isPeak
             ? Brush("#FFFAEBD3", "#FF4A3821")
             : Brush("#FFE4F2E9", "#FF274331");
         var phaseBrush = Brush(isPeak ? "#FF965B09" : "#FF187048", isPeak ? "#FFFFD37D" : "#FF6FDA9D");
-        Eyebrow.Text = isPeak ? "Peak pricing" : "50% cheaper";
+        Eyebrow.Text = _holidayCalendarAvailable ? (isPeak ? "Peak pricing" : "50% cheaper") :
+            (isPeak ? "Estimated peak pricing" : "Estimated off-peak pricing");
         Eyebrow.Foreground = phaseBrush;
         StatusText.Foreground = phaseBrush;
         StatusDot.Fill = phaseBrush;
@@ -105,7 +117,7 @@ public partial class PopupView : WpfUserControl
 
     private void UpdateRates()
     {
-        var pricing = DeepSeekPricing.Pricing(_selectedModel, _phase);
+        var pricing = _pricing.For(_selectedModel, _phase);
         CacheHit.Text = UsdPriceFormatter.Format(pricing.InputCacheHit);
         CacheMiss.Text = UsdPriceFormatter.Format(pricing.InputCacheMiss);
         Output.Text = UsdPriceFormatter.Format(pricing.Output);

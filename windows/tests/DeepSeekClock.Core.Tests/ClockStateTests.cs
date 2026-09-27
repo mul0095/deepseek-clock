@@ -6,6 +6,13 @@ namespace DeepSeekClock.Core.Tests;
 public class ClockStateTests
 {
     [Fact]
+    public void FutureYearWithoutPublishedHolidayNoticeIsMarkedEstimated()
+    {
+        Assert.True(ClockState.From(TestSupport.Utc(2026, 9, 28, 2, 0), TimeZoneInfo.Utc).HolidayCalendarAvailable);
+        Assert.False(ClockState.From(TestSupport.Utc(2027, 1, 4, 2, 0), TimeZoneInfo.Utc).HolidayCalendarAvailable);
+    }
+
+    [Fact]
     public void PhaseMatchesTheSchedule()
     {
         Assert.Equal(PricingPhase.Peak, ClockState.From(TestSupport.Utc(2026, 9, 21, 2, 0), TimeZoneInfo.Utc).Phase);

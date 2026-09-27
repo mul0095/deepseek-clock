@@ -69,7 +69,7 @@ internal sealed class TaskbarLabelWindow : Window, IDisposable
 
     public void ShowState(ClockState state)
     {
-        _text.Text = $"DeepSeek {state.Countdown}";
+        _text.Text = $"DeepSeek {(state.HolidayCalendarAvailable ? "" : "~")}{state.Countdown}";
         _dot.Fill = new SolidColorBrush(state.Phase == PricingPhase.Peak ? MediaColor.FromRgb(232, 182, 109) : MediaColor.FromRgb(103, 201, 147));
         LabelSurface.ToolTip = TrayAppContext.Tooltip(state) + "\nClick to open · Right-click for options";
     }
