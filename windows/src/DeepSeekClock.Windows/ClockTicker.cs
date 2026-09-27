@@ -18,6 +18,8 @@ internal sealed class ClockTicker : IDisposable
         _timer.Start();
     }
 
+    public void Refresh() => Raise();
+
     private void Raise() => Tick?.Invoke(ClockState.From(DateTimeOffset.Now, _displayZone));
 
     public void Dispose() => _timer.Dispose();

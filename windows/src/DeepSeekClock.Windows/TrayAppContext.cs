@@ -18,6 +18,7 @@ internal sealed class TrayAppContext : ApplicationContext
     private readonly PopupWindow _popup;
     private readonly TaskbarLabelWindow _taskbar = new();
     private readonly OfficialPricingService _pricing = new();
+    private readonly OfficialHolidayService _holidays = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly System.Windows.Forms.Timer _pricingRefreshTimer = new() { Interval = 6 * 60 * 60 * 1000 };
     private readonly PreferencesStore _store = new();
@@ -33,6 +34,8 @@ internal sealed class TrayAppContext : ApplicationContext
     public TrayAppContext(bool showPopup = false)
     {
         _preferences = _store.Load();
+        if (_holidays.ReadCache() is { } savedHolidays)
+            ChinesePublicHolidays.UseVerifiedCalendar(savedHolidays.Calendar);
         _popup = new PopupWindow(preview: showPopup);
         _currentPricing = _pricing.ReadCache();
         ApplyPricing(_currentPricing, live: false);
@@ -90,7 +93,7 @@ internal sealed class TrayAppContext : ApplicationContext
         _taskbar.MenuRequested += (sender, _) => ShowMenu(sender as UIElement);
         _ticker.Tick += UpdateUi;
         _ticker.Start();
-        _pricingRefreshTimer.Tick += (_, _) => _ = RefreshPricingAsync();
+        _pricingRefreshTimer.Tick += (_, _) => RefreshOfficialSources();
         System.Windows.Forms.Application.Idle += StartPricingOnIdle;
         ApplyPreferences();
         if (showPopup || _preferences.KeepOpen)
@@ -148,7 +151,32 @@ internal sealed class TrayAppContext : ApplicationContext
     {
         System.Windows.Forms.Application.Idle -= StartPricingOnIdle;
         _pricingRefreshTimer.Start();
+        RefreshOfficialSources();
+    }
+
+    private void RefreshOfficialSources()
+    {
         _ = RefreshPricingAsync();
+        _ = RefreshHolidaysAsync();
+    }
+
+    private async Task RefreshHolidaysAsync()
+    {
+        try
+        {
+            var snapshot = await _holidays.RefreshAsync(_shutdown.Token).ConfigureAwait(false);
+            if (snapshot is null || _shutdown.IsCancellationRequested || _popup.Dispatcher.HasShutdownStarted)
+                return;
+            _ = _popup.Dispatcher.BeginInvoke((Action)(() =>
+            {
+                ChinesePublicHolidays.UseVerifiedCalendar(snapshot.Calendar);
+                _ticker.Refresh();
+            }));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            Trace.TraceWarning("Official holidays unavailable: {0}", ex.Message);
+        }
     }
 
     private async Task RefreshPricingAsync()
@@ -230,6 +258,7 @@ internal sealed class TrayAppContext : ApplicationContext
             _shutdown.Cancel();
             _pricingRefreshTimer.Dispose();
             _pricing.Dispose();
+            _holidays.Dispose();
             _shutdown.Dispose();
             _ticker.Dispose();
             _menu.IsOpen = false;
