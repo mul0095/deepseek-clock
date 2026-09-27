@@ -12,6 +12,12 @@ repository.
 
 Times are shown in your local time zone; all calculation is done in UTC.
 
+## Appearance
+
+The popup follows the Windows app theme automatically. Choose Light or Dark in
+Windows Settings under Personalization > Colors; the popup updates when the
+setting changes.
+
 ## Run
 
 ```powershell
