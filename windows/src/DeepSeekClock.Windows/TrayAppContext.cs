@@ -1,54 +1,140 @@
-using System.Windows.Forms;
+using System.Diagnostics;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using DeepSeekClock.Core;
+using WpfMenu = System.Windows.Controls.ContextMenu;
+using WpfMenuItem = System.Windows.Controls.MenuItem;
 
 namespace DeepSeekClock.Windows;
 
-/// <summary>Owns the tray icon and keeps the application alive without a main window.</summary>
 internal sealed class TrayAppContext : ApplicationContext
 {
     private const int MaxTooltipLength = 127;
-
     private readonly NotifyIcon _notifyIcon;
-    private readonly ContextMenuStrip _menu;
+    private readonly WpfMenu _menu;
     private readonly ClockTicker _ticker = new();
     private readonly PopupWindow _popup;
+    private readonly TaskbarLabelWindow _taskbar = new();
+    private readonly PreferencesStore _store = new();
+    private WidgetPreferences _preferences;
+    private readonly WpfMenuItem _pinItem;
+    private readonly WpfMenuItem _labelItem;
+    private readonly WpfMenuItem _topItem;
+    private readonly Dictionary<ThemePreference, WpfMenuItem> _themeItems = new();
     private RenderedTrayIcon? _currentIcon;
     private PricingPhase? _paintedPhase;
 
     public TrayAppContext(bool showPopup = false)
     {
+        _preferences = _store.Load();
         _popup = new PopupWindow(preview: showPopup);
-        _currentIcon = TrayIconRenderer.Render(PricingPhase.OffPeak);
-        _menu = new ContextMenuStrip();
-        _menu.Items.Add("Open", null, (_, _) => TogglePopup());
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add("Exit", null, (_, _) => ExitThread());
-        _notifyIcon = new NotifyIcon
+        _menu = new WpfMenu { Placement = PlacementMode.MousePoint };
+        _menu.Resources.MergedDictionaries.Add(new ResourceDictionary
         {
-            Icon = _currentIcon.Icon,
-            Text = "DeepSeek Clock",
-            Visible = true,
-            ContextMenuStrip = _menu,
+            Source = new Uri("/DeepSeekClock;component/TrayMenu.xaml", UriKind.Relative),
+        });
+        _menu.Style = (Style)_menu.FindResource(typeof(WpfMenu));
+        _menu.Items.Add(Item("Open DeepSeek Clock", "\uE8A7", OpenPopup));
+        _labelItem = Item("Show timer on taskbar", "\uE950", null, checkable: true);
+        _labelItem.Click += (_, _) => Dispatch(() => Save(_preferences with { TaskbarLabel = _labelItem.IsChecked }));
+        _pinItem = Item("Keep window open", "\uE718", null, checkable: true);
+        _pinItem.Click += (_, _) => Dispatch(() => Save(_preferences with { KeepOpen = _pinItem.IsChecked }));
+        _topItem = Item("Always on top", "\uE74A", null, checkable: true);
+        _topItem.Click += (_, _) => Dispatch(() => Save(_preferences with { AlwaysOnTop = _topItem.IsChecked }));
+        _menu.Items.Add(_labelItem);
+        _menu.Items.Add(_pinItem);
+        _menu.Items.Add(_topItem);
+        _menu.Items.Add(new Separator());
+        var themes = Item("Appearance", "\uE790", null);
+        foreach (var theme in Enum.GetValues<ThemePreference>())
+        {
+            var item = Item(theme == ThemePreference.System ? "Use Windows theme" : theme.ToString(), "", () => Save(_preferences with { Theme = theme }));
+            _themeItems[theme] = item;
+            themes.Items.Add(item);
+        }
+        _menu.Items.Add(themes);
+        _menu.Items.Add(Item("Reset window position", "\uE81D", _popup.ResetPosition));
+        _menu.Items.Add(Item("DeepSeek Console", "\uE8A7", () => Process.Start(new ProcessStartInfo("https://platform.deepseek.com") { UseShellExecute = true })));
+        _menu.Items.Add(new Separator());
+        _menu.Items.Add(Item("Quit", "\uE8BB", ExitThread));
+        _menu.Opened += (_, _) => _popup.MenuOpen = true;
+        _menu.Closed += (_, _) =>
+        {
+            _popup.MenuOpen = false;
+            Dispatch(_popup.DismissIfInactive);
         };
+
+        _currentIcon = TrayIconRenderer.Render(PricingPhase.OffPeak);
+        _notifyIcon = new NotifyIcon { Icon = _currentIcon.Icon, Text = "DeepSeek Clock", Visible = true };
         _notifyIcon.MouseClick += (_, e) =>
         {
             if (e.Button == MouseButtons.Left)
                 TogglePopup();
+            else if (e.Button == MouseButtons.Right)
+                ShowMenu(null);
         };
         _popup.QuitRequested += (_, _) => ExitThread();
-        _ticker.Tick += state => UpdateUi(state);
+        _popup.PinRequested += (_, _) => Save(_preferences with { KeepOpen = !_preferences.KeepOpen });
+        _popup.OptionsRequested += (sender, _) => ShowMenu(sender as UIElement);
+        _popup.PositionSaved += (_, _) => Save(_preferences with { Position = _popup.Position });
+        _popup.ThemeChanged += (_, _) => _popup.CopyThemeTo(_menu.Resources);
+        _taskbar.OpenRequested += (_, _) => TogglePopup();
+        _taskbar.MenuRequested += (sender, _) => ShowMenu(sender as UIElement);
+        _ticker.Tick += UpdateUi;
         _ticker.Start();
-        if (showPopup)
-            Application.Idle += ShowPopupOnIdle;
+        ApplyPreferences();
+        if (showPopup || _preferences.KeepOpen)
+            System.Windows.Forms.Application.Idle += ShowPopupOnIdle;
+    }
+
+    private void Dispatch(Action action) => _popup.Dispatcher.BeginInvoke(action);
+
+    private WpfMenuItem Item(string text, string glyph, Action? action, bool checkable = false)
+    {
+        var item = new WpfMenuItem { Header = text, IsCheckable = checkable };
+        if (glyph.Length > 0)
+            item.Icon = new TextBlock { Text = glyph, FontFamily = new System.Windows.Media.FontFamily("Segoe MDL2 Assets"), FontSize = 14 };
+        if (action is not null)
+            item.Click += (_, _) => Dispatch(action);
+        return item;
+    }
+
+    private void ShowMenu(UIElement? anchor)
+    {
+        _menu.IsOpen = false;
+        _popup.CopyThemeTo(_menu.Resources);
+        _menu.PlacementTarget = anchor;
+        _menu.Placement = anchor is null ? PlacementMode.MousePoint : anchor == _taskbar.LabelSurface ? PlacementMode.Top : PlacementMode.Bottom;
+        _popup.MenuOpen = true;
+        _menu.IsOpen = true;
+    }
+
+    private void Save(WidgetPreferences preferences)
+    {
+        _preferences = preferences;
+        _store.Save(_preferences);
+        ApplyPreferences();
+    }
+
+    private void ApplyPreferences()
+    {
+        _popup.ApplyPreferences(_preferences);
+        _popup.CopyThemeTo(_menu.Resources);
+        _pinItem.IsChecked = _preferences.KeepOpen;
+        _labelItem.IsChecked = _preferences.TaskbarLabel;
+        _topItem.IsChecked = _preferences.AlwaysOnTop;
+        foreach (var (theme, item) in _themeItems)
+            item.IsChecked = _preferences.Theme == theme;
+        _taskbar.SetEnabled(_preferences.TaskbarLabel);
     }
 
     private void ShowPopupOnIdle(object? sender, EventArgs e)
     {
-        Application.Idle -= ShowPopupOnIdle;
-        TogglePopup();
+        System.Windows.Forms.Application.Idle -= ShowPopupOnIdle;
+        OpenPopup();
     }
 
-    /// <summary>Formats the tooltip, clamped to the Shell tooltip limit.</summary>
     internal static string Tooltip(ClockState state)
     {
         var phase = state.Phase == PricingPhase.Peak ? "Peak pricing" : "Off-peak · 50% off";
@@ -70,35 +156,37 @@ internal sealed class TrayAppContext : ApplicationContext
             previous?.Dispose();
         }
         _notifyIcon.Text = Tooltip(state);
+        _taskbar.ShowState(state);
         if (_popup.IsVisible)
             _popup.ShowState(state);
     }
 
+    private void OpenPopup()
+    {
+        _popup.ShowState(ClockState.From(DateTimeOffset.Now, TimeZoneInfo.Local));
+        _popup.ShowNearCursor();
+    }
+
     private void TogglePopup()
     {
-        if (_popup.IsVisible)
-        {
+        if (_popup.IsVisible && _popup.IsActive && _popup.WindowState != WindowState.Minimized)
             _popup.Hide();
-        }
         else
-        {
-            _popup.ShowState(ClockState.From(DateTimeOffset.Now, TimeZoneInfo.Local));
-            _popup.ShowNearCursor();
-        }
+            OpenPopup();
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            Application.Idle -= ShowPopupOnIdle;
+            System.Windows.Forms.Application.Idle -= ShowPopupOnIdle;
             _ticker.Dispose();
+            _menu.IsOpen = false;
+            _taskbar.Dispose();
             _popup.Dispose();
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
-            _menu.Dispose();
             _currentIcon?.Dispose();
-            _currentIcon = null;
         }
         base.Dispose(disposing);
     }
