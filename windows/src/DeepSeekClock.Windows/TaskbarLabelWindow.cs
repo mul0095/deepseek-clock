@@ -20,6 +20,7 @@ internal sealed class TaskbarLabelWindow : Window, IDisposable
     private IntPtr _handle;
     private bool _enabled;
     private bool _disposed;
+    private Rectangle? _lastPosition;
     private SolidColorBrush _hover = new(MediaColor.FromArgb(24, 255, 255, 255));
     public Border LabelSurface { get; } = new() { CornerRadius = new CornerRadius(6), Padding = new Thickness(9, 0, 9, 0), Margin = new Thickness(1) };
 
@@ -91,6 +92,7 @@ internal sealed class TaskbarLabelWindow : Window, IDisposable
             _timer.Stop();
             TaskbarPlacement.UnwatchForeground(_hook);
             _hook = IntPtr.Zero;
+            _lastPosition = null;
             Hide();
         }
     }
@@ -101,6 +103,7 @@ internal sealed class TaskbarLabelWindow : Window, IDisposable
             return;
         if (!TaskbarPlacement.TryGetPosition(_handle, Width, Height, out var bounds))
         {
+            _lastPosition = null;
             Hide();
             return;
         }
@@ -109,7 +112,11 @@ internal sealed class TaskbarLabelWindow : Window, IDisposable
             Opacity = 0;
             Show();
         }
-        TaskbarPlacement.Move(_handle, bounds);
+        if (_lastPosition != bounds)
+        {
+            TaskbarPlacement.Move(_handle, bounds);
+            _lastPosition = bounds;
+        }
         Opacity = 1;
     }
 
